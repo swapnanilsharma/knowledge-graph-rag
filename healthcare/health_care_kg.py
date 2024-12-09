@@ -95,6 +95,7 @@ def create_relationships(driver, provider, patient, specialization, location):
 
 # Main function to read the CSV file and populate the graph
 def main():
+    print("Connecting to Neo4j database...")
     driver = GraphDatabase.driver(NEO4J_URI, auth=AUTH)
 
     with open("healthcare.csv", mode="r") as file:

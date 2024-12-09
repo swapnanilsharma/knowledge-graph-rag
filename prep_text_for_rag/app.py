@@ -17,8 +17,9 @@ AUTH = (NEO4J_USERNAME, NEO4J_PASSWORD)
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_ENDPOINT = os.getenv("OPENAI_ENDPOINT")
+HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
 
-chat = ChatOpenAI(api_key=OPENAI_API_KEY)
+# chat = ChatOpenAI(api_key=OPENAI_API_KEY)
 
 
 kg = Neo4jGraph(
@@ -28,59 +29,60 @@ kg = Neo4jGraph(
     database=NEO4J_DATABASE,
 )
 
-# kg.query(
-#     """
-#     CREATE VECTOR INDEX health_providers_embeddings IF NOT EXISTS
-#     FOR (hp:HealthcareProvider) ON (hp.comprehensiveEmbedding)
-#     OPTIONS {
-#       indexConfig: {
-#         `vector.dimensions`: 1536,
-#         `vector.similarity_function`: 'cosine'
-#       }
-#     }
-#     """
-# )
+kg.query(
+    """
+    CREATE VECTOR INDEX health_providers_embeddings IF NOT EXISTS
+    FOR (hp:HealthcareProvider) ON (hp.comprehensiveEmbedding)
+    OPTIONS {
+      indexConfig: {
+        `vector.dimensions`: 1536,
+        `vector.similarity_function`: 'cosine'
+      }
+    }
+    """
+)
 
-# # test to see if the index was created
-# res = kg.query(
-#     """
-#   SHOW VECTOR INDEXES
-#   """
-# )
-# print(res)
+# test to see if the index was created
+res = kg.query(
+    """
+  SHOW VECTOR INDEXES
+  """
+)
+print(res)
 
-# kg.query(
-#     """
-#     MATCH (hp:HealthcareProvider)-[:TREATS]->(p:Patient)
-#     WHERE hp.bio IS NOT NULL
-#     WITH hp, genai.vector.encode(
-#         hp.bio,
-#         "OpenAI",
-#         {
-#           token: $openAiApiKey,
-#           endpoint: $openAiEndpoint
-#         }) AS vector
-#     WITH hp, vector
-#     WHERE vector IS NOT NULL
-#     CALL db.create.setNodeVectorProperty(hp, "comprehensiveEmbedding", vector)
-#     """,
-#     params={
-#         "openAiApiKey": OPENAI_API_KEY,
-#         "openAiEndpoint": OPENAI_ENDPOINT,
-#     },
-# )
+kg.query(
+    """
+    MATCH (hp:HealthcareProvider)-[:TREATS]->(p:Patient)
+    WHERE hp.bio IS NOT NULL
+    WITH hp, genai.vector.encode(
+        hp.bio,
+         "HuggingFace",  // Replace OpenAI with HuggingFace
+    {
+      token: $hfApiKey,          // Hugging Face API key
+      endpoint: "https://api.huggingface.co",  // Hugging Face endpoint
+      model: "sentence-transformers/all-MiniLM-L6-v2"  // Open-source embedding model
+    }) AS vector
+    WITH hp, vector
+    WHERE vector IS NOT NULL
+    CALL db.create.setNodeVectorProperty(hp, "comprehensiveEmbedding", vector)
+    """,
+    params={
+        "hfApiKey": HUGGINGFACE_API_KEY,
+    },
+)
 
-# result = kg.query(
-#     """
-#     MATCH (hp:HealthcareProvider)
-#     WHERE hp.bio IS NOT NULL
-#     RETURN hp.bio, hp.name, hp.comprehensiveEmbedding
-#     LIMIT 5
-#     """
-# )
-# # loop through the results
-# for record in result:
-#     print(f" bio: {record["hp.bio"]}, name: {record["hp.name"]}")
+
+result = kg.query(
+    """
+    MATCH (hp:HealthcareProvider)
+    WHERE hp.bio IS NOT NULL
+    RETURN hp.bio, hp.name, hp.comprehensiveEmbedding
+    LIMIT 5
+    """
+)
+# loop through the results
+for record in result:
+    print(f" bio: {record['hp.bio']}, name: {record['hp.name']}")
 
 # == Queerying the graph for a healthcare provider
 question = "give me a list of healthcare providers in the area of dermatology"
@@ -90,10 +92,11 @@ result = kg.query(
     """
     WITH genai.vector.encode(
         $question,
-        "OpenAI",
+        "HuggingFace",  // Replace OpenAI with HuggingFace
         {
-          token: $openAiApiKey,
-          endpoint: $openAiEndpoint
+          token: $hfApiKey,  // Hugging Face API key
+          endpoint: "https://api.huggingface.co",  // Hugging Face API endpoint
+          model: "sentence-transformers/all-MiniLM-L6-v2"  // Open-source embedding model
         }) AS question_embedding
     CALL db.index.vector.queryNodes(
         'health_providers_embeddings',
@@ -103,8 +106,7 @@ result = kg.query(
     RETURN healthcare_provider.name, healthcare_provider.bio, score
     """,
     params={
-        "openAiApiKey": OPENAI_API_KEY,
-        "openAiEndpoint": OPENAI_ENDPOINT,
+        "hfApiKey": HUGGINGFACE_API_KEY,  # Replace with your Hugging Face API key
         "question": question,
         "top_k": 3,
     },

@@ -34,3 +34,10 @@ WITH hp, vector
 WHERE vector IS NOT NULL
 CALL db.create.setNodeVectorProperty(hp, "comprehensiveEmbedding", vector)
 RETURN hp
+
+
+
+------- pliggin cypher
+
+CALL gds.beta.installer.installAll('vector', 'huggingface')
+CALL gds.alpha.config.set('vector.encoding.provider', 'huggingface')
