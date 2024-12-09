@@ -1,0 +1,18 @@
+------------ Add properties and relationships together to a node as property ------------
+
+
+MATCH (n)
+OPTIONAL MATCH (n)-[r]->(m)  // Match outgoing relationships
+OPTIONAL MATCH (n)<-[r2]-(m2)  // Match incoming relationships
+WITH n, 
+     collect(r) + collect(r2) AS relationships, 
+     collect(m) + collect(m2) AS neighbors
+SET n.concatenated_properties = 
+    "Node properties: " + 
+    REDUCE(acc = "", key IN keys(n) | acc + key + " is " + toString(n[key]) + ", ") +
+    " Connected to: " + 
+    REDUCE(acc = "", idx IN range(0, size(neighbors) - 1) | 
+        acc + type(relationships[idx]) + " -> " + 
+        REDUCE(acc2 = "", key IN keys(neighbors[idx]) | 
+            acc2 + key + " is " + toString(neighbors[idx][key]) + ", ") + "; ")
+RETURN n
