@@ -16,3 +16,21 @@ SET n.concatenated_properties =
         REDUCE(acc2 = "", key IN keys(neighbors[idx]) | 
             acc2 + key + " is " + toString(neighbors[idx][key]) + ", ") + "; ")
 RETURN n
+
+
+--------- To create vectors for each node where the concatenated_properties property is not NULL, you can adapt the query by replacing hp.bio with hp.concatenated_properties ----------
+
+
+MATCH (hp:HealthcareProvider)
+WHERE hp.concatenated_properties IS NOT NULL
+WITH hp, genai.vector.encode(
+    hp.concatenated_properties,
+    "OpenAI",
+    {
+      token: $openAiApiKey,
+      endpoint: $openAiEndpoint
+    }) AS vector
+WITH hp, vector
+WHERE vector IS NOT NULL
+CALL db.create.setNodeVectorProperty(hp, "comprehensiveEmbedding", vector)
+RETURN hp
